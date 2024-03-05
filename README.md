@@ -6,9 +6,7 @@
 
 
 ## Overview
-<div style="float: right; margin-left: 20px;">
 <img src="images/logo.png" width=150 style="float: right;"/>
-</div>
 Graphs are an efficient data structure for representing and analyzing river network network topology. Such topology, and its associated feature-space, can provide insight into the diversity of hydrologic responses seen across catchments. This dataset contains binary tree representations of fifth-order North American rivers. The network data was extracted from the HydroRIVERS dataset of Lehner & Grill, 2013. Node metadata includes hyriv_id, latitude, longitude, and subbasin ID. Edge metadata includes length (km), drainage area (sq.km.), strahler order.
 
 ## Network Card
