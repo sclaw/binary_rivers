@@ -1,9 +1,9 @@
 # North American Fifth-Order Streams Dataset
 <div style="text-align: right;">
-<img src="images/logo.png" width=150 />
+<img src="images/logo.png" width=150 style="float: right;"/>
 </div>
-<div style="text-align: center;">
-<img src="images/70434886.png" width="100"/> <img src="images/70584177.png" width="100"/> <img src="images/70671495.png" width="100"/>
+<div style="text-align: center; clear: both;">
+<img src="images/70434886.png" width="250"/> <img src="images/70584177.png" width="250"/> <img src="images/70671495.png" width="250"/>
 </div>
 
 
