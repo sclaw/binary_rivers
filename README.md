@@ -1,13 +1,14 @@
 # North American Fifth-Order Streams Dataset
-<div style="text-align: right;">
-<img src="images/logo.png" width=150 style="float: right;"/>
-</div>
+
 <div style="text-align: center; clear: both;">
 <img src="images/70434886.png" width="250"/> <img src="images/70584177.png" width="250"/> <img src="images/70671495.png" width="250"/>
 </div>
 
 
 ## Overview
+<div style="text-align: right;">
+<img src="images/logo.png" width=150 style="float: right;"/>
+</div>
 Graphs are an efficient data structure for representing and analyzing river network network topology. Such topology, and its associated feature-space, can provide insight into the diversity of hydrologic responses seen across catchments. This dataset contains binary tree representations of fifth-order North American rivers. The network data was extracted from the HydroRIVERS dataset of Lehner & Grill, 2013. Node metadata includes hyriv_id, latitude, longitude, and subbasin ID. Edge metadata includes length (km), drainage area (sq.km.), strahler order.
 
 ## Network Card
