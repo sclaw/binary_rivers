@@ -26,7 +26,13 @@ class Segment:
         tmp_intercept = self.first[1] - (tmp_slope * self.first[0])
         self.d = ((self.last[0] - self.first[0]) ** 2 + (self.last[1] - self.first[1]) ** 2) ** 0.5
 
-        self.orientation = (np.arctan2(np.array([dy]), np.array([dx])) / np.pi) * 180
+        if dx == 0:
+            if dy > 0:
+                self.orientation = 90
+            else:
+                self.orientation = -90
+        else:
+            self.orientation = (np.arctan2(np.array([dy]), np.array([dx])) / np.pi) * 180
 
         tmp_dist = 0
         for coord in self.coords:
@@ -59,7 +65,7 @@ class Network:
         self.to_field = to_field
         self.edges = self.gdf[[from_field, to_field]]
 
-        self.gdf[['length', 'curvature', 'meander', 'orientation']] = np.nan
+        self.gdf.loc[:, ['length', 'curvature', 'meander', 'orientation']] = np.nan
         self.calc_edge_metrics()
 
         self.metrics = self.calc_network_metrics()
@@ -121,14 +127,14 @@ class Network:
         [q.put(i) for i in init_list]
         evaluated = dict()
         all_edges = self.gdf[self.from_field].to_list()
-        print(f'{q.qsize()} left to process')
         while not q.empty():
             cur_node = q.get()
             if not cur_node in all_edges:
                 continue
             
             tribs = self.gdf[self.gdf[self.to_field] == cur_node][self.from_field].index
-
+            if len(tribs) != 2:
+                continue
             tja = abs(self.gdf.loc[tribs[0], 'orientation'] - self.gdf.loc[tribs[1], 'orientation'])
             if tja > 180:
                 tja = 360 - tja
@@ -137,9 +143,6 @@ class Network:
             next_down = self.edges[self.edges[self.from_field] == cur_node][self.to_field].item()
             if not next_down in evaluated:
                 q.put(next_down)
-            # init_list.append(cur_node)
-            if q.qsize() % 100 == 0:
-                print(f'{q.qsize()} junctions left to process')
         return evaluated
 
 
