@@ -142,6 +142,41 @@ def label_basins(db_path, order_thresh):
     con.commit()
     con.close()
 
+def label_basins_tree_search(db_path, order_thresh):
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    root_query = sql_query = """
+        SELECT t1.hyriv_id
+        FROM edges t1
+        JOIN edges t2 ON t1.next_down = t2.hyriv_id
+        WHERE t1.ord_stra = ?
+          AND t2.ord_stra > ?;
+    """
+    cur.execute(sql_query, (order_thresh, order_thresh))
+    roots = [i[0] for i in cur.fetchall()]
+
+    counter = 0
+    try:
+        cur.execute('ALTER TABLE nodes ADD basin INT DEFAULT -1')
+    except (NameError, sqlite3.OperationalError):
+        cur.execute('ALTER TABLE nodes DROP basin')
+        cur.execute('ALTER TABLE nodes ADD basin INT DEFAULT -1')
+
+    for root_node in roots:
+        print(counter)
+        q = [root_node]
+        reaches = []
+        while q:
+            cur_node = q[-1]
+            q.pop()
+            reaches.append(cur_node)
+            cur.execute('SELECT hyriv_id FROM edges WHERE next_down = ?', (cur_node,))
+            q.extend([i[0] for i in cur.fetchall()])
+        cur.execute('UPDATE nodes SET basin = {} WHERE hyriv_id IN ({})'.format(root_node, ", ".join("?" * len(reaches))), reaches)
+        counter += 1
+    con.commit()
+    con.close()
+
 def prune_graph(db_path):
     con = sqlite3.connect(db_path)
     cur = con.cursor()
@@ -210,8 +245,8 @@ def enforcce_binary(db_path):
 
 if __name__ == '__main__':
     in_path = os.path.join(os.getcwd(), 'data', 'HydroRIVERS_v10_na.gdb')
-    out_path =  os.path.join(os.getcwd(), 'data', 'graph.db.gdb')
-    extract_graph(in_path, out_path)
+    out_path =  os.path.join(os.getcwd(), 'data', 'graph_2.db')
+    # extract_graph(in_path, out_path)
     label_basins(out_path, 5)
     prune_graph(out_path)
     enforcce_binary(out_path)
