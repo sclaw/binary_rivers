@@ -1,7 +1,8 @@
 import geopandas as gpd
+import pandas as pd
 import numpy as np
 import queue
-
+from scipy.stats import circmean, circstd
 
 class Segment:
 
@@ -91,9 +92,11 @@ class Network:
         self.edge_dict = edge_dict
 
         self.gdf.loc[:, ['length', 'curvature', 'meander', 'orientation', 'depth', 'leaves', 'balance_factor', 'cum_depth', 'ave_depth', 'tja']] = np.nan
+        self.gdf['trunk'] = 0
         self.calc_edge_metrics()
 
         self.post_order_traversal()
+        self.get_trunk()
         self.metrics = self.calc_network_metrics()
 
     def find_root(self):
@@ -124,14 +127,67 @@ class Network:
         out_dict['ave_meander'] = self.gdf['meander'].mean()
         out_dict['med_meander'] = self.gdf['meander'].median()
         out_dict['std_meander'] = self.gdf['meander'].std()
-        out_dict['ave_orientation'] = self.gdf['orientation'].mean()
-        out_dict['med_orientation'] = self.gdf['orientation'].median()
-        out_dict['std_orientation'] = self.gdf['orientation'].std()
+
+        orientations = self.gdf['orientation'].dropna()
+        out_dict['ave_orientation'] = circmean(orientations, low=-180, high=180)
+        out_dict['std_orientation'] = circstd(orientations, low=-180, high=180)
+
+        exterior_mask = (self.gdf['leaves'] > 1)
+        out_dict['mean_length_ext'] = self.gdf[exterior_mask]['length'].mean()
+        out_dict['mean_curvature_ext'] = self.gdf[exterior_mask]['curvature'].mean()
+        out_dict['mean_meander_ext'] = self.gdf[exterior_mask]['meander'].mean()
+        interior_mask = (self.gdf['leaves'] == 1)
+        out_dict['mean_length_int'] = self.gdf[interior_mask]['length'].mean()
+        out_dict['mean_curvature_int'] = self.gdf[interior_mask]['curvature'].mean()
+        out_dict['mean_meander_int'] = self.gdf[interior_mask]['meander'].mean()
+
+        out_dict['std_length_ext'] = self.gdf[exterior_mask]['length'].std()
+        out_dict['std_curvature_ext'] = self.gdf[exterior_mask]['curvature'].std()
+        out_dict['std_meander_ext'] = self.gdf[exterior_mask]['meander'].std()
+
+        out_dict['std_length_int'] = self.gdf[interior_mask]['length'].std()
+        out_dict['std_curvature_int'] = self.gdf[interior_mask]['curvature'].std()
+        out_dict['std_meander_int'] = self.gdf[interior_mask]['meander'].std()
+
+        for i in self.gdf['ORD_STRA'].unique():
+            if np.isnan(i):
+                continue
+            out_dict[f'mean_length_ord_{i}'] = self.gdf[self.gdf['ORD_STRA'] == i]['length'].mean()
+            out_dict[f'mean_curvature_ord_{i}'] = self.gdf[self.gdf['ORD_STRA'] == i]['curvature'].mean()
+            out_dict[f'mean_meander_ord_{i}'] = self.gdf[self.gdf['ORD_STRA'] == i]['meander'].mean()
+
+        trunk_mask = (self.gdf['trunk'] == 1)
+        out_dict['mean_length_trunk'] = self.gdf[trunk_mask]['length'].mean()
+        out_dict['mean_curvature_trunk'] = self.gdf[trunk_mask]['curvature'].mean()
+        out_dict['mean_meander_trunk'] = self.gdf[trunk_mask]['meander'].mean()
 
         tjas = self.gdf['tja'].dropna()
         out_dict['ave_tja'] = tjas.mean()
         out_dict['med_tja'] = tjas.median()
         out_dict['std_tja'] = tjas.std()
+        bins = [0, 80, 100, 170, 180]
+        hist = np.histogram(tjas, bins=bins, density=True)[0]
+        out_dict['pct_t_acute'] = hist[0]
+        out_dict['pct_t_right'] = hist[1]
+        out_dict['pct_t_obtuse'] = hist[2]
+        out_dict['pct_t_straight'] = hist[3]
+
+        ext_angles = tjas[exterior_mask]
+        bins = np.arange(0, 180, 30)
+        ext_hist = np.histogram(ext_angles, bins=bins, density=True)[0]
+        ext_hist_sums = ext_hist[1:] + ext_hist[:-1]
+        int_angles = tjas[interior_mask]
+        int_hist = np.histogram(int_angles, bins=bins, density=True)[0]
+        int_hist_sums = int_hist[1:] + int_hist[:-1]
+        if max(ext_angles) > 0.6:
+            out_dict['parallel'] = 1
+        elif max(ext_hist_sums) > 0.7:
+            out_dict['parallel'] = 1
+        elif max(ext_hist_sums) > 0.5:
+            if int_hist_sums[np.argmax(ext_hist_sums)] > 0.8:
+                out_dict['parallel'] = 1
+            else:
+                out_dict['parallel'] = 0
 
         out_dict['med_depth'] = self.gdf['depth'].median()
         out_dict['std_depth'] = self.gdf['depth'].std()
@@ -143,6 +199,7 @@ class Network:
         out_dict['ave_depth'] = self.gdf.loc[self.root, 'ave_depth']
         out_dict['height'] = self.gdf['depth'].max()
         out_dict['compactness'] = out_dict['height'] / out_dict['leaves']
+        out_dict['mag_ord_ratio'] = self.gdf.loc[self.root, 'leaves'] / self.gdf['ORD_STRA'].max()
 
         out_dict['density'] = self.gdf['length'].sum() / self.da
         out_dict['texture'] = len(self.gdf) / self.da
@@ -213,7 +270,26 @@ class Network:
             if tja > 180:
                 tja = 360 - tja
             self.gdf.loc[node, 'tja'] = tja
-            
+
+    def get_trunk(self):
+        print('Finding Trunk...')
+        q = [self.root]
+        while q:
+            cur_node = q[-1]
+            if cur_node not in self.edge_dict:
+                q.pop()
+            else:
+                self.gdf.loc[cur_node, 'trunk'] = 1
+                children = self.edge_dict[cur_node]
+                if self.gdf.loc[children[0], 'depth'] > self.gdf.loc[children[1], 'depth']:
+                    q.pop()
+                    q.append(children[0])
+                else:
+                    q.pop()
+                    q.append(children[1])
+                
+        return
+
     def post_order_traversal(self):
         print('Traversing Network...')
         
