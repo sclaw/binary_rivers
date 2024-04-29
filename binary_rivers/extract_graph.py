@@ -195,7 +195,7 @@ def prune_graph(db_path):
 
 def enforcce_binary(db_path):
     """ Ensures that all nodes have at most two children.  Inserts artificial edges and nodes to enforce this. """
-    
+
     # SQL queries
     get_tribs = 'SELECT * FROM edges WHERE next_down = ?'
     bad_reach_query = 'SELECT t1.* FROM edges t1 JOIN (SELECT next_down, COUNT(*) AS count_next_down FROM edges GROUP BY next_down) t2 ON t1.hyriv_id = t2.next_down WHERE t2.count_next_down > 2;'
@@ -250,10 +250,3 @@ def enforcce_binary(db_path):
         bad_reaches = cur.fetchall()
     con.close()
 
-if __name__ == '__main__':
-    in_path = os.path.join(os.getcwd(), 'data', 'HydroRIVERS_v10_na.gdb')
-    out_path =  os.path.join(os.getcwd(), 'data', 'graph_2.db')
-    extract_graph(in_path, out_path)
-    label_basins(out_path, 5)
-    prune_graph(out_path)
-    enforcce_binary(out_path)
